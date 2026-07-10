@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loop Engineering — Mission Control</title>
+<style>
+  /* Deliberate single-look dark theme (mission control). Values from the
+     validated reference palette, dark column. */
+  :root {
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #232322;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.10);
+    --role-orchestrator: #9085e9; /* violet  */
+    --role-team-lead:    #3987e5; /* blue    */
+    --role-worker:       #199e70; /* aqua    */
+    --st-good:     #0ca30c;
+    --st-warning:  #fab219;
+    --st-serious:  #ec835a;
+    --st-critical: #d03b3b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+    padding: 14px 20px; border-bottom: 1px solid var(--grid);
+    position: sticky; top: 0; background: var(--page); z-index: 5;
+  }
+  .brand { font-weight: 700; letter-spacing: .12em; font-size: 13px; }
+  .brand small { color: var(--muted); font-weight: 400; letter-spacing: .08em; }
+  .tiles { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+  .tile {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 14px; min-width: 108px;
+  }
+  .tile .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .tile .v { font-size: 20px; font-weight: 650; margin-top: 2px; }
+  .tile .v small { font-size: 12px; color: var(--ink-2); font-weight: 400; }
+
+  main {
+    display: grid; gap: 14px; padding: 14px 20px 24px;
+    grid-template-columns: 300px 1fr 360px;
+  }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  section h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted); margin: 4px 0 10px; font-weight: 600;
+  }
+
+  /* ---- agents column ---- */
+  .agent {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 10px; border-left: 3px solid var(--muted);
+  }
+  .agent.role-orchestrator { border-left-color: var(--role-orchestrator); }
+  .agent.role-team-lead    { border-left-color: var(--role-team-lead); }
+  .agent.role-worker       { border-left-color: var(--role-worker); }
+  .agent .top { display: flex; align-items: center; gap: 8px; }
+  .agent .name { font-weight: 650; }
+  .badge {
+    font-size: 10.5px; color: var(--ink-2); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px;
+  }
+  .state { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; color: var(--ink-2); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.pulse { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+  .agent .last { color: var(--muted); font-size: 12px; margin-top: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .agent .cost { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+  .tree-gap { margin-left: 18px; position: relative; }
+  .tree-gap::before {
+    content: ""; position: absolute; left: -12px; top: -6px; bottom: 8px;
+    border-left: 1px solid var(--grid);
+  }
+
+  /* ---- task board ---- */
+  .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  @media (max-width: 1400px) { .board { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); } }
+  .col { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px; min-height: 120px; }
+  .col h3 { margin: 2px 4px 8px; font-size: 11px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  .col h3 .cnt { margin-left: auto; color: var(--ink-2); }
+  .card {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 9px; margin-bottom: 6px; font-size: 12.5px;
+  }
+  .card .id { color: var(--muted); font-size: 10.5px; letter-spacing: .05em; }
+  .card .note { color: var(--muted); font-size: 11px; margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .col.c-doing   h3 .dot { background: var(--role-team-lead); }
+  .col.c-verify  h3 .dot { background: var(--st-warning); }
+  .col.c-done    h3 .dot { background: var(--st-good); }
+  .col.c-failed  h3 .dot { background: var(--st-critical); }
+  .empty { color: var(--muted); font-size: 12px; text-align: center; padding: 18px 4px; }
+
+  /* ---- feed ---- */
+  #feed { display: flex; flex-direction: column; gap: 5px; max-height: calc(100vh - 140px); overflow-y: auto; }
+  .ev {
+    display: grid; grid-template-columns: 46px 92px 1fr; gap: 8px; align-items: baseline;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 9px; font-size: 12px;
+  }
+  .ev .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ev .who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ev.role-orchestrator .who { color: var(--role-orchestrator); }
+  .ev.role-team-lead    .who { color: var(--role-team-lead); }
+  .ev.role-worker       .who { color: var(--role-worker); }
+  .ev .what { color: var(--ink-2); overflow-wrap: anywhere; }
+  .ev .what .tool { color: var(--ink); font-weight: 600; }
+  .ev.type-result .what { color: var(--st-good); }
+  .ev.type-agent_exited .what, .ev.type-user_prompt .what { color: var(--ink); }
+
+  .waiting {
+    grid-column: 1 / -1; text-align: center; color: var(--muted);
+    padding: 60px 20px; border: 1px dashed var(--grid); border-radius: 12px;
+  }
+  .waiting code { color: var(--ink-2); background: var(--surface); padding: 2px 6px; border-radius: 6px; }
+  .conn { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">LOOP ENGINEERING <small>· mission control</small></div>
+  <div class="conn"><span class="dot" id="connDot"></span><span id="connLabel">connecting…</span></div>
+  <div class="tiles">
+    <div class="tile"><div class="k">Elapsed</div><div class="v" id="tElapsed">–</div></div>
+    <div class="tile"><div class="k">Agents active</div><div class="v" id="tAgents">0</div></div>
+    <div class="tile"><div class="k">Tokens</div><div class="v" id="tTokens">0</div></div>
+    <div class="tile"><div class="k">Cost</div><div class="v" id="tCost">$0.00</div></div>
+  </div>
+</header>
+
+<main>
+  <div class="waiting" id="waiting">
+    No mission yet. Open a terminal in this repo, run <code>claude</code> and type
+    <code>start</code> — agents will appear here live.<br><br>
+    Just want to see the UI? Run <code>node scripts/demo.js</code>.
+  </div>
+
+  <section id="agentsSec" hidden>
+    <h2>Agent hierarchy</h2>
+    <div id="agents"></div>
+  </section>
+
+  <section id="boardSec" hidden>
+    <h2>Task board</h2>
+    <div class="board" id="board"></div>
+  </section>
+
+  <section id="feedSec" hidden>
+    <h2>Live feed</h2>
+    <div id="feed"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  agents: new Map(),   // id -> {id, role, model, state, last, cost, tokens, ts}
+  statuses: new Map(), // agent id -> status-file object
+  tasks: [],
+  firstTs: null,
+  totals: { cost: 0, tokens: 0 },
+  feedCount: 0,
+};
+
+const FEED_MAX = 250;
+const ACTIVE_STATES = new Set(['started', 'working', 'verifying', 'planning', 'supervising', 'integrating', 'active']);
+
+function normTs(ts) { return ts && ts < 1e12 ? ts * 1000 : ts; } // tolerate seconds
+function fmtClock(ts) {
+  const d = new Date(normTs(ts));
+  return d.toTimeString().slice(0, 8);
+}
+function fmtTokens(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
+  return String(n);
+}
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function agentOf(ev) {
+  const id = ev.agent || 'unknown';
+  if (!state.agents.has(id)) {
+    state.agents.set(id, { id, role: ev.role || 'worker', model: ev.model || '?', state: 'idle', last: '', cost: 0, tokens: 0, ts: ev.ts });
+  }
+  const a = state.agents.get(id);
+  if (ev.role && ev.role !== 'unknown') a.role = ev.role;
+  if (ev.model && ev.model !== 'unknown') a.model = ev.model;
+  return a;
+}
+
+function onLog(ev) {
+  if (!state.firstTs && ev.ts) state.firstTs = normTs(ev.ts);
+  const a = agentOf(ev);
+  a.ts = ev.ts;
+
+  switch (ev.type) {
+    case 'agent_started':
+    case 'spawned':
+      a.state = 'active'; a.last = ev.detail || 'started'; break;
+    case 'tool_use':
+      a.state = 'active'; a.last = `${ev.tool || 'tool'}: ${ev.detail || ''}`; break;
+    case 'text':
+      a.state = 'active'; a.last = ev.detail || ''; break;
+    case 'result':
+      a.state = ev.subtype === 'success' ? 'done' : 'failed';
+      a.cost += ev.cost_usd || 0;
+      a.tokens += (ev.tokens_in || 0) + (ev.tokens_out || 0);
+      state.totals.cost += ev.cost_usd || 0;
+      state.totals.tokens += (ev.tokens_in || 0) + (ev.tokens_out || 0);
+      a.last = ev.detail || 'finished'; break;
+    case 'agent_exited':
+      if (a.state === 'active') a.state = 'exited'; break;
+    case 'agent_idle':
+      a.state = 'idle'; a.last = ev.detail || ''; break;
+    case 'user_prompt':
+      a.state = 'active'; a.last = '🧑 ' + (ev.detail || ''); break;
+  }
+  addFeedRow(ev);
+}
+
+function addFeedRow(ev) {
+  const feed = $('feed');
+  const row = document.createElement('div');
+  row.className = `ev role-${esc(ev.role || 'worker')} type-${esc(ev.type || '')}`;
+  const what = ev.type === 'tool_use'
+    ? `<span class="tool">${esc(ev.tool || 'tool')}</span> ${esc(ev.detail || '')}`
+    : ev.type === 'result'
+      ? `✔ ${esc(ev.subtype)} · $${(ev.cost_usd || 0).toFixed(3)} · ${fmtTokens((ev.tokens_in || 0) + (ev.tokens_out || 0))} tok`
+      : esc(ev.detail || ev.type);
+  row.innerHTML = `<span class="t">${fmtClock(ev.ts)}</span><span class="who" title="${esc(ev.agent)}">${esc(ev.agent)}</span><span class="what" title="${esc(ev.detail || '')}">${what}</span>`;
+  feed.prepend(row);
+  if (++state.feedCount > FEED_MAX) feed.lastElementChild?.remove();
+}
+
+function onSnapshot(snap) {
+  state.tasks = snap.tasks || [];
+  state.statuses = new Map((snap.statuses || []).map((s) => [s.agent, s]));
+  // status files are the freshest truth for spawned agents
+  for (const [id, st] of state.statuses) {
+    const a = agentOf({ agent: id, role: id === 'team-lead' ? 'team-lead' : 'worker', ts: st.ts });
+    if (st.state) a.state = st.state;
+    if (st.note || st.detail) a.last = st.note || st.detail;
+  }
+}
+
+function stateColor(s) {
+  if (s === 'done') return 'var(--st-good)';
+  if (s === 'failed') return 'var(--st-critical)';
+  if (s === 'verifying') return 'var(--st-warning)';
+  if (ACTIVE_STATES.has(s)) return 'var(--role-team-lead)';
+  return 'var(--muted)';
+}
+
+function renderAgents() {
+  const order = { orchestrator: 0, 'team-lead': 1, worker: 2 };
+  const list = [...state.agents.values()].sort(
+    (x, y) => (order[x.role] ?? 3) - (order[y.role] ?? 3) || x.id.localeCompare(y.id)
+  );
+  $('tAgents').textContent = list.filter((a) => ACTIVE_STATES.has(a.state)).length;
+  $('agents').innerHTML = list.map((a) => {
+    const active = ACTIVE_STATES.has(a.state);
+    const indent = a.role === 'team-lead' ? 'tree-gap' : a.role === 'worker' ? 'tree-gap' : '';
+    const style = a.role === 'worker' ? 'margin-left:36px' : a.role === 'team-lead' ? 'margin-left:18px' : '';
+    return `<div class="agent role-${esc(a.role)} ${indent}" style="${style}">
+      <div class="top">
+        <span class="name">${esc(a.id)}</span>
+        <span class="badge">${esc(a.model)}</span>
+        <span class="state"><span class="dot ${active ? 'pulse' : ''}" style="background:${stateColor(a.state)}"></span>${esc(a.state)}</span>
+      </div>
+      <div class="last" title="${esc(a.last)}">${esc(a.last) || '&nbsp;'}</div>
+      ${a.cost ? `<div class="cost">$${a.cost.toFixed(3)} · ${fmtTokens(a.tokens)} tok</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+const COLUMNS = [
+  ['todo', 'To do', ''],
+  ['doing', 'In progress', 'c-doing'],
+  ['verify', 'Verifying', 'c-verify'],
+  ['done', 'Done', 'c-done'],
+  ['failed', 'Failed', 'c-failed'],
+];
+
+function taskColumn(task) {
+  for (const st of state.statuses.values()) {
+    if (st.task !== task.id) continue;
+    if (st.state === 'done') return 'done';
+    if (st.state === 'failed') return 'failed';
+    if (st.state === 'verifying') return 'verify';
+    return 'doing';
+  }
+  return 'todo';
+}
+
+function renderBoard() {
+  const buckets = { todo: [], doing: [], verify: [], done: [], failed: [] };
+  for (const t of state.tasks) buckets[taskColumn(t)].push(t);
+  $('board').innerHTML = COLUMNS.map(([key, label, cls]) => {
+    const cards = buckets[key].map((t) => {
+      const st = [...state.statuses.values()].find((s) => s.task === t.id);
+      return `<div class="card"><div class="id">${esc(t.id)} · phase ${t.phase}</div>${esc(t.title)}
+        ${st && st.note ? `<div class="note" title="${esc(st.note)}">${esc(st.note)}</div>` : ''}</div>`;
+    }).join('');
+    return `<div class="col ${cls}"><h3><span class="dot"></span>${label}<span class="cnt">${buckets[key].length}</span></h3>${cards || '<div class="empty">—</div>'}</div>`;
+  }).join('');
+}
+
+function renderTiles() {
+  $('tTokens').textContent = fmtTokens(state.totals.tokens);
+  $('tCost').textContent = '$' + state.totals.cost.toFixed(2);
+  if (state.firstTs) {
+    const s = Math.max(0, Math.floor((Date.now() - state.firstTs) / 1000));
+    $('tElapsed').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+}
+
+function reveal() {
+  if (!$('agentsSec').hidden) return;
+  $('waiting').hidden = true;
+  $('agentsSec').hidden = $('boardSec').hidden = $('feedSec').hidden = false;
+}
+
+let dirty = false;
+function scheduleRender() { dirty = true; }
+setInterval(() => {
+  renderTiles();
+  if (!dirty) return;
+  dirty = false;
+  reveal();
+  renderAgents();
+  renderBoard();
+}, 500);
+
+function resetAll() {
+  state.agents.clear(); state.statuses.clear();
+  state.tasks = []; state.firstTs = null;
+  state.totals = { cost: 0, tokens: 0 };
+  state.feedCount = 0;
+  $('feed').innerHTML = '';
+  scheduleRender();
+}
+
+const es = new EventSource('/events');
+es.addEventListener('log', (m) => { try { onLog(JSON.parse(m.data)); scheduleRender(); } catch {} });
+es.addEventListener('snapshot', (m) => { try { onSnapshot(JSON.parse(m.data)); scheduleRender(); } catch {} });
+es.addEventListener('reset', resetAll);
+es.onopen = () => { $('connLabel').textContent = 'live'; $('connDot').style.background = 'var(--st-good)'; };
+es.onerror = () => { $('connLabel').textContent = 'reconnecting…'; $('connDot').style.background = 'var(--st-warning)'; };
+</script>
+</body>
+</html>

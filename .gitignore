@@ -1,0 +1,10 @@
+# runtime state of a mission (events, tasks, statuses, logs)
+.loop/
+.loop.prev-*/
+
+# the app the agents build
+workspace/
+
+node_modules/
+nohup.out
+.DS_Store
