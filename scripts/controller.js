@@ -107,7 +107,7 @@ async function runController(options = {}) {
     status('orchestrator', 'verifying');
     const finalized = await run({
       agentId: 'team-lead', role: 'team-lead', model: config.teamLead.id, variant: config.teamLead.variant,
-      sessionId: lead.sessionId, timeoutMs: config.timeoutMs, loopDir, manageStatus: false,
+      timeoutMs: config.timeoutMs, loopDir, manageStatus: false,
       prompt: '[FINALIZE] All workers are terminal. Read their statuses and task files, run the mission acceptance criteria, and write .loop/report.md. Do not spawn workers or poll. Report failure honestly if verification fails.',
       onEvent(event) {
         if (event.type === 'tool_use' && event.tool === 'bash') status('team-lead', 'verifying');

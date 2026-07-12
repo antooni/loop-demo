@@ -158,6 +158,7 @@
     <div class="tile"><div class="k">Agents active</div><div class="v" id="tAgents">0</div></div>
     <div class="tile"><div class="k">Tokens</div><div class="v" id="tTokens">0</div></div>
     <div class="tile"><div class="k">Cost</div><div class="v" id="tCost">$0.00</div></div>
+    <div class="tile"><div class="k">Est. / Cap</div><div class="v" id="tBudget">–</div></div>
   </div>
 </header>
 
@@ -194,6 +195,7 @@ const state = {
   tasks: [],
   firstTs: null,
   totals: { cost: 0, tokens: 0 },
+  budget: { estimatedCostUsd: null, maxCostUsd: null },
   feedCount: 0,
 };
 
@@ -277,6 +279,7 @@ function addFeedRow(ev) {
 function onSnapshot(snap) {
   state.tasks = snap.tasks || [];
   state.statuses = new Map((snap.statuses || []).map((s) => [s.agent, s]));
+  if (snap.budget) state.budget = { ...state.budget, ...snap.budget };
   // A status is authoritative only when it is at least as fresh as the last event.
   for (const [id, st] of state.statuses) {
     const statusTs = normTs(st.updatedAt || st.ts);
@@ -353,7 +356,17 @@ function renderBoard() {
 
 function renderTiles() {
   $('tTokens').textContent = fmtTokens(state.totals.tokens);
-  $('tCost').textContent = '$' + state.totals.cost.toFixed(2);
+  const real = state.totals.cost;
+  const est = state.budget.estimatedCostUsd;
+  const cap = state.budget.maxCostUsd;
+  $('tCost').textContent = '$' + real.toFixed(2);
+  const costEl = $('tCost');
+  if (cap && real >= cap) costEl.style.color = 'var(--st-critical)';
+  else if (est && real >= est) costEl.style.color = 'var(--st-warning)';
+  else costEl.style.color = '';
+  const estStr = est != null ? '$' + est.toFixed(2) : '–';
+  const capStr = cap != null ? '$' + cap.toFixed(2) : '–';
+  $('tBudget').innerHTML = estStr + ' <small>/ ' + capStr + '</small>';
   if (state.firstTs) {
     const s = Math.max(0, Math.floor((Date.now() - state.firstTs) / 1000));
     $('tElapsed').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;

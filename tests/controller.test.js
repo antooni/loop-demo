@@ -8,7 +8,7 @@ const path = require('path');
 const { ensureLoopDir } = require('../scripts/eventlog');
 const { runController } = require('../scripts/controller');
 
-test('controller waits outside the model and resumes Team Lead', async () => {
+test('controller waits outside the model and starts fresh agent sessions', async () => {
   const loopDir = fs.mkdtempSync(path.join(os.tmpdir(), 'loop-controller-'));
   ensureLoopDir(loopDir);
   fs.writeFileSync(path.join(loopDir, 'mission.md'), '# Mission\n');
@@ -36,7 +36,7 @@ test('controller waits outside the model and resumes Team Lead', async () => {
   });
   assert.equal(result.success, true);
   assert.deepEqual(calls.map((call) => call.prompt.split(' ')[0]), ['[PLAN]', '[WORK]', '[FINALIZE]']);
-  assert.equal(calls[2].sessionId, 'ses_lead');
+  assert.equal(calls.every((call) => call.sessionId === undefined), true);
   assert.equal(calls[0].variant, 'max');
   assert.equal(calls.some((call) => /sleep|wait until/i.test(call.prompt)), false);
 });

@@ -1,6 +1,7 @@
 # runtime state of a mission (events, tasks, statuses, logs)
 .loop/
 .loop.prev-*/
+.code-index/
 
 # the app the agents build
 workspace/

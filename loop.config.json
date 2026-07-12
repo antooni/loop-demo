@@ -14,5 +14,6 @@
   },
   "maxCostUsd": 3,
   "agentTimeoutMs": 600000,
-  "workerRetries": 1
+  "workerRetries": 1,
+  "estimatedCostUsd": 0.67
 }

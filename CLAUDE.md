@@ -16,3 +16,6 @@ do not infer a different role from the repository name or runtime artifacts.
 - There is no `claude -p` compatibility backend. Automated tests make no paid calls.
 - The approved role profile is GLM 5.2 `max` for Orchestrator, GPT-5.6 Luna `max`
   for Team Lead, and MiMo V2.5 Pro for Workers.
+- Prefer fresh agent clients over reusing conversational context. Shared repository
+  understanding will come from a separate Graphify-style index, not from the loop,
+  `.loop` protocol, or agents repeatedly rereading the whole repository.

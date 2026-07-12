@@ -89,8 +89,18 @@ function createDashboardServer(options = {}) {
     partial = data.subarray(start);
   }
 
+  function readBudget() {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "loop.config.json"), "utf8"));
+      return {
+        maxCostUsd: cfg.maxCostUsd ?? null,
+        estimatedCostUsd: cfg.estimatedCostUsd ?? null,
+      };
+    } catch { return { maxCostUsd: null, estimatedCostUsd: null }; }
+  }
+
   function readSnapshot() {
-    const snapshot = { tasks: [], statuses: [] };
+    const snapshot = { tasks: [], statuses: [], budget: readBudget() };
     try {
       for (const name of fs.readdirSync(tasksDir).sort()) {
         if (!name.endsWith('.md')) continue;
