@@ -58,6 +58,23 @@ function ingestNewEvents() {
   }
 }
 
+// A status file can be permanently malformed (e.g. a headless agent computed its `ts`
+// with a non-portable shell command and embedded stray characters in the JSON number),
+// not just mid-write. In that case JSON.parse never recovers on later ticks, so fall
+// back to pulling out the fields we actually render via regex rather than dropping the
+// agent from the board forever.
+function parseStatus(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const field = (name) => (text.match(new RegExp(`"${name}"\\s*:\\s*"([^"]*)"`)) || [])[1];
+    const agent = field('agent');
+    const state = field('state');
+    if (!agent || !state) return null;
+    return { agent, task: field('task'), state, note: field('note') || field('detail'), ts: Date.now() };
+  }
+}
+
 function readSnapshot() {
   const snapshot = { tasks: [], statuses: [] };
   try {
@@ -73,9 +90,8 @@ function readSnapshot() {
   try {
     for (const name of fs.readdirSync(STATUS_DIR).sort()) {
       if (!name.endsWith('.json')) continue;
-      try {
-        snapshot.statuses.push(JSON.parse(fs.readFileSync(path.join(STATUS_DIR, name), 'utf8')));
-      } catch {} // agent may be mid-write; next tick will catch it
+      const status = parseStatus(fs.readFileSync(path.join(STATUS_DIR, name), 'utf8'));
+      if (status) snapshot.statuses.push(status);
     }
   } catch {}
   return snapshot;

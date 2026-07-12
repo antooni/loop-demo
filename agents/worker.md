@@ -15,8 +15,10 @@ transition:
 ```
 
 States, in order: `started` → `working` → `verifying` → `done` | `failed`.
-`ts` is epoch milliseconds (`date +%s%3N`). Write `started` as your very first action
-and `done`/`failed` as your very last — the Team Lead relies on this file.
+`ts` is epoch milliseconds — get it with `node -e "console.log(Date.now())"`.
+Do NOT use `date +%s%3N`: it's GNU-only and silently breaks on macOS/BSD `date`.
+Write `started` as your very first action and `done`/`failed` as your very last —
+the Team Lead relies on this file.
 
 ## The loop
 

@@ -108,3 +108,21 @@ When `.loop/report.md` appears:
 - Keep your own token use lean: short messages, no re-reading large files.
 - If the Team Lead dies or stalls (>10 min with no status change), tell the user,
   show the tail of `.loop/logs/team-lead.err`, and offer to respawn.
+
+## Known gotchas
+- Timestamps in `agents/team-lead.md` / `agents/worker.md` must be generated with
+  `node -e "console.log(Date.now())"`, never `date +%s%3N` — that flag is GNU-only and
+  silently breaks on macOS/BSD `date` (this machine). A bad timestamp command is what
+  causes headless agents to burn turns probing basic bash instead of doing mission work.
+- Watch out for shell aliases in the operator's own interactive session (e.g. `ps` may
+  be aliased to `pnpm start` in `~/.zshrc`) — they don't affect headless `claude -p`
+  agents, only the Orchestrator's own diagnostic commands. Use `command ps` to bypass.
+- The Team Lead runs as one-shot `claude -p` (no session, nobody re-invokes it). If it
+  ever backgrounds its phase-completion poll and ends its turn "waiting to be
+  notified," the whole process exits immediately, the background task is killed with
+  it, and the mission stalls forever with no error in `team-lead.err`. Symptom: the
+  dashboard and the user both see workers finish but nothing happens next, and
+  `pgrep -fl "claude -p"` finds nothing. `agents/team-lead.md` now forbids this
+  pattern and requires synchronous foreground polling instead — if it recurs, check
+  `.loop/logs/team-lead.raw.jsonl` for `"stop_reason":"end_turn"` right after a
+  background task gets `"status":"killed"`.

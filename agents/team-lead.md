@@ -16,9 +16,17 @@ state change:
 ```
 
 States: `planning` → `supervising` → `integrating` → `done` (or `failed`).
-`ts` is epoch milliseconds (`date +%s%3N`).
+`ts` is epoch milliseconds — get it with `node -e "console.log(Date.now())"`.
+Do NOT use `date +%s%3N`: it's GNU-only and silently breaks on macOS/BSD `date`.
 
 ## Workflow
+
+### 0. Resuming?
+Check `.loop/tasks/` before doing anything else. If task files already exist, this is a
+**resumed** mission (your previous process died mid-run) — do NOT re-plan or overwrite
+them. Read `.loop/status/*.json` to see what's done/failed/missing and pick up
+supervision from there: spawn Workers only for tasks with no status file yet, wait on
+any still in-progress, handle failures per step 3, then continue to step 4/5.
 
 ### 1. Plan
 Read `.loop/mission.md`. Split it into **3–8 tasks**, each:
@@ -73,6 +81,16 @@ sleep 20 && cat .loop/status/worker-*.json 2>/dev/null
 ```
 
 Wait until every worker of the phase reports `done` or `failed`.
+
+**Critical: you are a one-shot headless process (`claude -p`), not an interactive
+session.** Nobody is watching to "notify" you later — if you background this poll (e.g.
+via a backgrounded/async tool call) and end your turn expecting to be resumed when it
+finishes, your entire process exits immediately and the background task is killed with
+it. The mission then stalls forever with no one to continue it. You MUST poll
+**synchronously, in the foreground**: call the blocking `sleep && cat` command as an
+ordinary tool call, look at its result, and call it again yourself if workers aren't
+terminal yet — all within this same continuous turn. Only end your turn once the whole
+mission is finished (`.loop/report.md` written) or has irrecoverably failed.
 
 ### 3. Handle failures
 For a `failed` task (or a worker silent for >5 min — check `.loop/logs/worker-*.err`):
