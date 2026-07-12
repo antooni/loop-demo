@@ -48,6 +48,10 @@ function createDashboardServer(options = {}) {
     try {
       stat = fs.statSync(eventsFile);
     } catch {
+      if (fileKey) {
+        reset();
+        fileKey = null;
+      }
       return;
     }
     const nextFileKey = `${stat.dev}:${stat.ino}`;

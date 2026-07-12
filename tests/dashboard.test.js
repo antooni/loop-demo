@@ -46,6 +46,19 @@ test('SSE reconnect resumes after Last-Event-ID', async () => {
   }
 });
 
+test('removing the event log resets dashboard history', () => {
+  const loopDir = fs.mkdtempSync(path.join(os.tmpdir(), 'loop-dashboard-reset-'));
+  ensureLoopDir(loopDir);
+  appendEvent({ agent: 'worker-01', role: 'worker', model: 'test/fake', type: 'text', detail: 'old-event' }, loopDir);
+  const dashboard = createDashboardServer({ loopDir });
+  dashboard.ingestNewEvents();
+
+  fs.unlinkSync(path.join(loopDir, 'events.jsonl'));
+  dashboard.ingestNewEvents();
+
+  assert.deepEqual(dashboard.history, []);
+});
+
 test('malformed status is rejected and surfaced once', () => {
   const loopDir = fs.mkdtempSync(path.join(os.tmpdir(), 'loop-invalid-'));
   ensureLoopDir(loopDir);
