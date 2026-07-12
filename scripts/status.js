@@ -20,7 +20,7 @@ const STATES = {
   worker: new Set(['queued', 'running', 'done', 'failed']),
 };
 const STATUS_FIELDS = new Set([
-  'agent', 'role', 'state', 'model', 'task', 'attempt', 'pid', 'sessionId', 'updatedAt',
+  'agent', 'role', 'state', 'model', 'variant', 'task', 'attempt', 'pid', 'sessionId', 'updatedAt',
 ]);
 
 function validateStatus(status) {
@@ -36,6 +36,7 @@ function validateStatus(status) {
     throw new Error('attempt must be a positive integer');
   }
   if (status.model != null && typeof status.model !== 'string') throw new Error('model must be a string');
+  if (status.variant != null && typeof status.variant !== 'string') throw new Error('variant must be a string');
   if (status.pid != null && (!Number.isInteger(status.pid) || status.pid < 1)) throw new Error('invalid pid');
   if (status.sessionId != null && typeof status.sessionId !== 'string') throw new Error('sessionId must be a string');
   if (status.updatedAt != null && (!Number.isInteger(status.updatedAt) || status.updatedAt < 1)) {
@@ -64,9 +65,14 @@ if (require.main === module) {
   const [agent, role, state] = process.argv.slice(2);
   try {
     const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'loop.config.json'), 'utf8'));
-    const env = role === 'orchestrator' ? 'LOOP_ORCHESTRATOR_MODEL'
-      : role === 'team-lead' ? 'LOOP_TEAM_LEAD_MODEL' : 'LOOP_WORKER_MODEL';
-    writeStatus({ agent, role, state, model: process.env[env] || config.models?.[role === 'team-lead' ? 'teamLead' : role] });
+    const key = role === 'team-lead' ? 'teamLead' : role;
+    const value = config.models?.[key];
+    const envPrefix = role === 'team-lead' ? 'TEAM_LEAD' : role.toUpperCase();
+    writeStatus({
+      agent, role, state,
+      model: process.env[`LOOP_${envPrefix}_MODEL`] || (typeof value === 'string' ? value : value?.id),
+      variant: process.env[`LOOP_${envPrefix}_VARIANT`] || (typeof value === 'object' ? value.variant : undefined),
+    });
   } catch (error) {
     console.error(error.message);
     process.exit(1);

@@ -1,8 +1,16 @@
 {
   "models": {
-    "orchestrator": "openrouter/openai/gpt-5.4",
-    "teamLead": "openrouter/anthropic/claude-sonnet-4.5",
-    "worker": "openrouter/anthropic/claude-haiku-4.5"
+    "orchestrator": {
+      "id": "openrouter/z-ai/glm-5.2",
+      "variant": "max"
+    },
+    "teamLead": {
+      "id": "openrouter/openai/gpt-5.6-luna",
+      "variant": "max"
+    },
+    "worker": {
+      "id": "openrouter/xiaomi/mimo-v2.5-pro"
+    }
   },
   "maxCostUsd": 3,
   "agentTimeoutMs": 600000,

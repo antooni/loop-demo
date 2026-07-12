@@ -35,7 +35,11 @@ const child = spawn(process.execPath, [path.join(__dirname, 'controller.js')], {
 });
 fs.closeSync(errorFd);
 fs.writeFileSync(pidFile, `${child.pid}\n`);
-writeStatus({ agent: 'orchestrator', role: 'orchestrator', state: 'launching', model: loadConfig().orchestratorModel }, LOOP_DIR);
+const config = loadConfig();
+writeStatus({
+  agent: 'orchestrator', role: 'orchestrator', state: 'launching',
+  model: config.orchestrator.id, variant: config.orchestrator.variant,
+}, LOOP_DIR);
 appendEvent({ agent: 'controller', role: 'controller', model: 'deterministic', type: 'controller_started', detail: `pid ${child.pid}` });
 child.unref();
 console.log(`Mission controller started (pid ${child.pid}).`);

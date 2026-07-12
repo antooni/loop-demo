@@ -35,9 +35,17 @@ Wybierz OpenRouter podczas logowania, a następnie ustaw pełne identyfikatory
 ```json
 {
   "models": {
-    "orchestrator": "openrouter/<model-id>",
-    "teamLead": "openrouter/<model-id>",
-    "worker": "openrouter/<model-id>"
+    "orchestrator": {
+      "id": "openrouter/z-ai/glm-5.2",
+      "variant": "max"
+    },
+    "teamLead": {
+      "id": "openrouter/openai/gpt-5.6-luna",
+      "variant": "max"
+    },
+    "worker": {
+      "id": "openrouter/xiaomi/mimo-v2.5-pro"
+    }
   },
   "maxCostUsd": 3,
   "agentTimeoutMs": 600000,
@@ -51,12 +59,13 @@ Wartości można nadpisać bez edycji pliku:
 export LOOP_ORCHESTRATOR_MODEL=openrouter/<model-id>
 export LOOP_TEAM_LEAD_MODEL=openrouter/<model-id>
 export LOOP_WORKER_MODEL=openrouter/<model-id>
+export LOOP_TEAM_LEAD_VARIANT=max
 ```
 
 ## Start
 
 ```bash
-opencode --agent orchestrator --model openrouter/<orchestrator-model>
+node scripts/open.js
 ```
 
 W sesji napisz `start`. Orchestrator uruchomi dashboard, zbierze wymagania, pokaże
@@ -107,7 +116,7 @@ full configurable `provider/model` ID.
 Run `opencode auth login`, configure `loop.config.json`, then launch:
 
 ```bash
-opencode --agent orchestrator --model openrouter/<orchestrator-model>
+node scripts/open.js
 ```
 
 Type `start`. The Orchestrator interviews you and requires explicit budget approval.

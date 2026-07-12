@@ -26,6 +26,7 @@ function runAgent(options) {
     agentId,
     role,
     model,
+    variant,
     prompt,
     task,
     attempt = 1,
@@ -46,7 +47,7 @@ function runAgent(options) {
 
   ensureLoopDir(loopDir);
   const startedAt = Date.now();
-  const base = { agent: agentId, role, model, attempt, task };
+  const base = { agent: agentId, role, model, variant, attempt, task };
   const emit = (event) => {
     const value = { ...base, ...event };
     appendEvent(value, loopDir);
@@ -59,11 +60,12 @@ function runAgent(options) {
   const defaultArgs = [
     'run', '--format', 'json', '--model', model, '--agent', role,
     '--title', `${agentId} attempt ${attempt}`,
+    ...(variant ? ['--variant', variant] : []),
     ...(sessionId ? ['--session', sessionId] : []),
     ...extraArgs,
     prompt,
   ];
-  const args = buildArgs ? buildArgs({ role, model, prompt, sessionId, attempt }) : defaultArgs;
+  const args = buildArgs ? buildArgs({ role, model, variant, prompt, sessionId, attempt }) : defaultArgs;
   const logsDir = path.join(loopDir, 'logs');
   fs.mkdirSync(logsDir, { recursive: true });
   const stderr = fs.createWriteStream(path.join(logsDir, `${agentId}-attempt-${attempt}.err`), { flags: 'a' });

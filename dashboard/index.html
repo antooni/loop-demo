@@ -163,7 +163,7 @@
 
 <main>
   <div class="waiting" id="waiting">
-    No mission yet. Open a terminal in this repo, run <code>opencode --agent orchestrator</code> and type
+    No mission yet. Open a terminal in this repo, run <code>node scripts/open.js</code> and type
     <code>start</code> — agents will appear here live.<br><br>
     Just want to see the UI? Run <code>node scripts/demo.js</code>.
   </div>
@@ -221,11 +221,12 @@ function esc(s) {
 function agentOf(ev) {
   const id = ev.agent || 'unknown';
   if (!state.agents.has(id)) {
-    state.agents.set(id, { id, role: ev.role || 'worker', model: ev.model || '?', state: 'idle', last: '', cost: 0, tokens: 0, ts: ev.ts });
+    state.agents.set(id, { id, role: ev.role || 'worker', model: ev.model || '?', variant: ev.variant, state: 'idle', last: '', cost: 0, tokens: 0, ts: ev.ts });
   }
   const a = state.agents.get(id);
   if (ev.role && ev.role !== 'unknown') a.role = ev.role;
   if (ev.model && ev.model !== 'unknown') a.model = ev.model;
+  if (ev.variant) a.variant = ev.variant;
   return a;
 }
 
@@ -279,7 +280,7 @@ function onSnapshot(snap) {
   // A status is authoritative only when it is at least as fresh as the last event.
   for (const [id, st] of state.statuses) {
     const statusTs = normTs(st.updatedAt || st.ts);
-    const a = agentOf({ agent: id, role: st.role, model: st.model, ts: statusTs });
+    const a = agentOf({ agent: id, role: st.role, model: st.model, variant: st.variant, ts: statusTs });
     if (a.ts && statusTs < normTs(a.ts)) continue;
     a.ts = statusTs;
     if (st.state) a.state = st.state;
@@ -303,12 +304,13 @@ function renderAgents() {
   $('tAgents').textContent = list.filter((a) => ACTIVE_STATES.has(a.state)).length;
   $('agents').innerHTML = list.map((a) => {
     const active = ACTIVE_STATES.has(a.state);
+    const model = a.variant ? `${a.model} · ${a.variant}` : a.model;
     const indent = a.role === 'team-lead' ? 'tree-gap' : a.role === 'worker' ? 'tree-gap' : '';
     const style = a.role === 'worker' ? 'margin-left:24px' : a.role === 'team-lead' ? 'margin-left:12px' : '';
     return `<div class="agent role-${esc(a.role)} ${indent}" style="${style}">
       <div class="top">
         <span class="name">${esc(a.id)}</span>
-        <span class="badge" title="${esc(a.model)}">${esc(a.model)}</span>
+        <span class="badge" title="${esc(model)}">${esc(model)}</span>
         <span class="state"><span class="dot ${active ? 'pulse' : ''}" style="background:${stateColor(a.state)}"></span>${esc(a.state)}</span>
       </div>
       <div class="last" title="${esc(a.last)}">${esc(a.last) || '&nbsp;'}</div>

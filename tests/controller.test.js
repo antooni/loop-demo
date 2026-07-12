@@ -27,10 +27,16 @@ test('controller waits outside the model and resumes Team Lead', async () => {
   };
   const result = await runController({
     loopDir, runAgent: fakeRun,
-    config: { teamLeadModel: 'test/lead', workerModel: 'test/worker', maxCostUsd: 3, timeoutMs: 1000, retries: 0 },
+    config: {
+      orchestrator: { id: 'test/orchestrator' },
+      teamLead: { id: 'test/lead', variant: 'max' },
+      worker: { id: 'test/worker' },
+      maxCostUsd: 3, timeoutMs: 1000, retries: 0,
+    },
   });
   assert.equal(result.success, true);
   assert.deepEqual(calls.map((call) => call.prompt.split(' ')[0]), ['[PLAN]', '[WORK]', '[FINALIZE]']);
   assert.equal(calls[2].sessionId, 'ses_lead');
+  assert.equal(calls[0].variant, 'max');
   assert.equal(calls.some((call) => /sleep|wait until/i.test(call.prompt)), false);
 });

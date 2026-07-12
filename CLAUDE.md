@@ -14,3 +14,5 @@ do not infer a different role from the repository name or runtime artifacts.
 - `.loop` is the runtime protocol boundary. Status JSON is strict and atomic; malformed
   data is surfaced as an error, never repaired with regex.
 - There is no `claude -p` compatibility backend. Automated tests make no paid calls.
+- The approved role profile is GLM 5.2 `max` for Orchestrator, GPT-5.6 Luna `max`
+  for Team Lead, and MiMo V2.5 Pro for Workers.

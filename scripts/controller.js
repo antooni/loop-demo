@@ -11,10 +11,17 @@ const ROOT = path.resolve(__dirname, '..');
 
 function loadConfig(file = path.join(ROOT, 'loop.config.json')) {
   const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const role = (name, envName, variantEnvName) => {
+    const value = config.models?.[name];
+    return {
+      id: process.env[envName] || (typeof value === 'string' ? value : value?.id),
+      variant: process.env[variantEnvName] || (typeof value === 'object' ? value.variant : undefined),
+    };
+  };
   return {
-    orchestratorModel: process.env.LOOP_ORCHESTRATOR_MODEL || config.models?.orchestrator,
-    teamLeadModel: process.env.LOOP_TEAM_LEAD_MODEL || config.models?.teamLead,
-    workerModel: process.env.LOOP_WORKER_MODEL || config.models?.worker,
+    orchestrator: role('orchestrator', 'LOOP_ORCHESTRATOR_MODEL', 'LOOP_ORCHESTRATOR_VARIANT'),
+    teamLead: role('teamLead', 'LOOP_TEAM_LEAD_MODEL', 'LOOP_TEAM_LEAD_VARIANT'),
+    worker: role('worker', 'LOOP_WORKER_MODEL', 'LOOP_WORKER_VARIANT'),
     maxCostUsd: Number(process.env.LOOP_MAX_COST_USD || config.maxCostUsd || 3),
     timeoutMs: Number(process.env.LOOP_AGENT_TIMEOUT_MS || config.agentTimeoutMs || 600_000),
     retries: Number(process.env.LOOP_WORKER_RETRIES || config.workerRetries || 1),
@@ -44,7 +51,8 @@ async function runController(options = {}) {
 
   const status = (role, state) => writeStatus({
     agent: role === 'orchestrator' ? 'orchestrator' : 'team-lead', role, state,
-    model: role === 'team-lead' ? config.teamLeadModel : config.orchestratorModel,
+    model: role === 'team-lead' ? config.teamLead.id : config.orchestrator.id,
+    variant: role === 'team-lead' ? config.teamLead.variant : config.orchestrator.variant,
   }, loopDir);
   const fail = (message) => {
     status('team-lead', 'failed');
@@ -59,7 +67,7 @@ async function runController(options = {}) {
     status('team-lead', 'planning');
 
     const lead = await run({
-      agentId: 'team-lead', role: 'team-lead', model: config.teamLeadModel,
+      agentId: 'team-lead', role: 'team-lead', model: config.teamLead.id, variant: config.teamLead.variant,
       prompt: '[PLAN] Read .loop/mission.md and create 3-8 precise task files grouped into phases. This invocation only plans. Do not spawn workers, poll, implement, verify the mission, or write the final report. Finish immediately after writing the task files.',
       timeoutMs: config.timeoutMs, loopDir, manageStatus: false,
     });
@@ -78,7 +86,7 @@ async function runController(options = {}) {
         let result;
         for (let attempt = 1; attempt <= config.retries + 1; attempt++) {
           result = await run({
-            agentId: `worker-${task.id.slice(5)}`, role: 'worker', model: config.workerModel,
+            agentId: `worker-${task.id.slice(5)}`, role: 'worker', model: config.worker.id, variant: config.worker.variant,
             task: task.id, attempt, timeoutMs: config.timeoutMs, loopDir,
             prompt: `[WORK] Read .loop/tasks/${task.id}.md and complete exactly that task. Run its Verify command before finishing.`,
           });
@@ -98,7 +106,7 @@ async function runController(options = {}) {
     status('team-lead', 'integrating');
     status('orchestrator', 'verifying');
     const finalized = await run({
-      agentId: 'team-lead', role: 'team-lead', model: config.teamLeadModel,
+      agentId: 'team-lead', role: 'team-lead', model: config.teamLead.id, variant: config.teamLead.variant,
       sessionId: lead.sessionId, timeoutMs: config.timeoutMs, loopDir, manageStatus: false,
       prompt: '[FINALIZE] All workers are terminal. Read their statuses and task files, run the mission acceptance criteria, and write .loop/report.md. Do not spawn workers or poll. Report failure honestly if verification fails.',
       onEvent(event) {
