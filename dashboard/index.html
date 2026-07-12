@@ -49,9 +49,20 @@
 
   main {
     display: grid; gap: 14px; padding: 14px 20px 24px;
-    grid-template-columns: 300px 1fr 360px;
+    grid-template-columns: minmax(320px, 360px) minmax(0, 1fr) minmax(320px, 360px);
   }
-  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  @media (max-width: 1280px) {
+    main { grid-template-columns: minmax(300px, 340px) minmax(0, 1fr); }
+    #feedSec { grid-column: 1 / -1; }
+    #feed { max-height: 420px; }
+  }
+  @media (max-width: 760px) {
+    header { padding: 12px 14px; }
+    .tiles { width: 100%; margin-left: 0; display: grid; grid-template-columns: repeat(2, 1fr); }
+    .tile { min-width: 0; }
+    main { grid-template-columns: minmax(0, 1fr); padding: 12px 14px 20px; }
+    #feedSec { grid-column: auto; }
+  }
   section h2 {
     font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
     color: var(--muted); margin: 4px 0 10px; font-weight: 600;
@@ -65,14 +76,19 @@
   .agent.role-orchestrator { border-left-color: var(--role-orchestrator); }
   .agent.role-team-lead    { border-left-color: var(--role-team-lead); }
   .agent.role-worker       { border-left-color: var(--role-worker); }
-  .agent .top { display: flex; align-items: center; gap: 8px; }
-  .agent .name { font-weight: 650; }
-  .badge {
-    font-size: 10.5px; color: var(--ink-2); background: var(--surface-2);
-    border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px;
+  .agent .top {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center; gap: 6px 10px;
   }
-  .state { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; color: var(--ink-2); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .agent .name { min-width: 0; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge {
+    grid-column: 1 / -1; grid-row: 2; justify-self: start; max-width: 100%;
+    font-size: 10.5px; color: var(--ink-2); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .state { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+  .dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--muted); }
   .dot.pulse { animation: pulse 1.2s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
   .agent .last { color: var(--muted); font-size: 12px; margin-top: 6px;
@@ -82,6 +98,10 @@
   .tree-gap::before {
     content: ""; position: absolute; left: -12px; top: -6px; bottom: 8px;
     border-left: 1px solid var(--grid);
+  }
+  @media (max-width: 760px) {
+    .agent.tree-gap { margin-left: 0 !important; }
+    .tree-gap::before { display: none; }
   }
 
   /* ---- task board ---- */
@@ -143,7 +163,7 @@
 
 <main>
   <div class="waiting" id="waiting">
-    No mission yet. Open a terminal in this repo, run <code>claude</code> and type
+    No mission yet. Open a terminal in this repo, run <code>opencode --agent orchestrator</code> and type
     <code>start</code> — agents will appear here live.<br><br>
     Just want to see the UI? Run <code>node scripts/demo.js</code>.
   </div>
@@ -178,7 +198,11 @@ const state = {
 };
 
 const FEED_MAX = 250;
-const ACTIVE_STATES = new Set(['started', 'working', 'verifying', 'planning', 'supervising', 'integrating', 'active']);
+const ACTIVE_STATES = new Set([
+  'interviewing', 'launching', 'monitoring', 'starting', 'planning', 'dispatching',
+  'waiting_workers', 'reviewing_results', 'integrating', 'verifying', 'reporting',
+  'queued', 'running', 'active',
+]);
 
 function normTs(ts) { return ts && ts < 1e12 ? ts * 1000 : ts; } // tolerate seconds
 function fmtClock(ts) {
@@ -213,11 +237,11 @@ function onLog(ev) {
   switch (ev.type) {
     case 'agent_started':
     case 'spawned':
-      a.state = 'active'; a.last = ev.detail || 'started'; break;
+      a.state = 'running'; a.last = ev.detail || 'started'; break;
     case 'tool_use':
-      a.state = 'active'; a.last = `${ev.tool || 'tool'}: ${ev.detail || ''}`; break;
+      a.state = 'running'; a.last = `${ev.tool || 'tool'}: ${ev.detail || ''}`; break;
     case 'text':
-      a.state = 'active'; a.last = ev.detail || ''; break;
+      a.state = 'running'; a.last = ev.detail || ''; break;
     case 'result':
       a.state = ev.subtype === 'success' ? 'done' : 'failed';
       a.cost += ev.cost_usd || 0;
@@ -226,11 +250,11 @@ function onLog(ev) {
       state.totals.tokens += (ev.tokens_in || 0) + (ev.tokens_out || 0);
       a.last = ev.detail || 'finished'; break;
     case 'agent_exited':
-      if (a.state === 'active') a.state = 'exited'; break;
+      if (ACTIVE_STATES.has(a.state)) a.state = 'exited'; break;
     case 'agent_idle':
       a.state = 'idle'; a.last = ev.detail || ''; break;
     case 'user_prompt':
-      a.state = 'active'; a.last = '🧑 ' + (ev.detail || ''); break;
+      a.state = 'running'; a.last = ev.detail || ''; break;
   }
   addFeedRow(ev);
 }
@@ -242,7 +266,7 @@ function addFeedRow(ev) {
   const what = ev.type === 'tool_use'
     ? `<span class="tool">${esc(ev.tool || 'tool')}</span> ${esc(ev.detail || '')}`
     : ev.type === 'result'
-      ? `✔ ${esc(ev.subtype)} · $${(ev.cost_usd || 0).toFixed(3)} · ${fmtTokens((ev.tokens_in || 0) + (ev.tokens_out || 0))} tok`
+      ? `${esc(ev.subtype)} · $${(ev.cost_usd || 0).toFixed(3)} · ${fmtTokens((ev.tokens_in || 0) + (ev.tokens_out || 0))} tok`
       : esc(ev.detail || ev.type);
   row.innerHTML = `<span class="t">${fmtClock(ev.ts)}</span><span class="who" title="${esc(ev.agent)}">${esc(ev.agent)}</span><span class="what" title="${esc(ev.detail || '')}">${what}</span>`;
   feed.prepend(row);
@@ -252,9 +276,12 @@ function addFeedRow(ev) {
 function onSnapshot(snap) {
   state.tasks = snap.tasks || [];
   state.statuses = new Map((snap.statuses || []).map((s) => [s.agent, s]));
-  // status files are the freshest truth for spawned agents
+  // A status is authoritative only when it is at least as fresh as the last event.
   for (const [id, st] of state.statuses) {
-    const a = agentOf({ agent: id, role: id === 'team-lead' ? 'team-lead' : 'worker', ts: st.ts });
+    const statusTs = normTs(st.updatedAt || st.ts);
+    const a = agentOf({ agent: id, role: st.role, model: st.model, ts: statusTs });
+    if (a.ts && statusTs < normTs(a.ts)) continue;
+    a.ts = statusTs;
     if (st.state) a.state = st.state;
     if (st.note || st.detail) a.last = st.note || st.detail;
   }
@@ -263,7 +290,7 @@ function onSnapshot(snap) {
 function stateColor(s) {
   if (s === 'done') return 'var(--st-good)';
   if (s === 'failed') return 'var(--st-critical)';
-  if (s === 'verifying') return 'var(--st-warning)';
+  if (s === 'verifying' || s === 'waiting_workers' || s === 'awaiting_approval') return 'var(--st-warning)';
   if (ACTIVE_STATES.has(s)) return 'var(--role-team-lead)';
   return 'var(--muted)';
 }
@@ -277,11 +304,11 @@ function renderAgents() {
   $('agents').innerHTML = list.map((a) => {
     const active = ACTIVE_STATES.has(a.state);
     const indent = a.role === 'team-lead' ? 'tree-gap' : a.role === 'worker' ? 'tree-gap' : '';
-    const style = a.role === 'worker' ? 'margin-left:36px' : a.role === 'team-lead' ? 'margin-left:18px' : '';
+    const style = a.role === 'worker' ? 'margin-left:24px' : a.role === 'team-lead' ? 'margin-left:12px' : '';
     return `<div class="agent role-${esc(a.role)} ${indent}" style="${style}">
       <div class="top">
         <span class="name">${esc(a.id)}</span>
-        <span class="badge">${esc(a.model)}</span>
+        <span class="badge" title="${esc(a.model)}">${esc(a.model)}</span>
         <span class="state"><span class="dot ${active ? 'pulse' : ''}" style="background:${stateColor(a.state)}"></span>${esc(a.state)}</span>
       </div>
       <div class="last" title="${esc(a.last)}">${esc(a.last) || '&nbsp;'}</div>
@@ -333,6 +360,7 @@ function renderTiles() {
 
 function reveal() {
   if (!$('agentsSec').hidden) return;
+  if (!state.agents.size && !state.tasks.length && !state.feedCount) return;
   $('waiting').hidden = true;
   $('agentsSec').hidden = $('boardSec').hidden = $('feedSec').hidden = false;
 }

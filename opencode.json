@@ -1,0 +1,58 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "agent": {
+    "orchestrator": {
+      "description": "Interactive Loop Engineering orchestrator",
+      "mode": "primary",
+      "prompt": "{file:./agents/orchestrator.md}",
+      "steps": 40,
+      "permission": {
+        "read": "allow",
+        "edit": {
+          "*": "deny",
+          ".loop/mission.md": "allow"
+        },
+        "glob": "allow",
+        "grep": "allow",
+        "bash": "allow",
+        "task": "deny"
+      }
+    },
+    "team-lead": {
+      "description": "Plans tasks and verifies completed missions",
+      "mode": "primary",
+      "prompt": "{file:./agents/team-lead.md}",
+      "steps": 30,
+      "permission": {
+        "read": "allow",
+        "edit": {
+          "*": "deny",
+          ".loop/tasks/**": "allow",
+          ".loop/report.md": "allow"
+        },
+        "glob": "allow",
+        "grep": "allow",
+        "bash": "allow",
+        "task": "deny"
+      }
+    },
+    "worker": {
+      "description": "Implements one task and verifies it",
+      "mode": "primary",
+      "prompt": "{file:./agents/worker.md}",
+      "steps": 40,
+      "permission": {
+        "read": "allow",
+        "edit": {
+          "*": "deny",
+          "workspace/**": "allow"
+        },
+        "glob": "allow",
+        "grep": "allow",
+        "bash": "allow",
+        "task": "deny"
+      }
+    }
+  }
+}

@@ -5,30 +5,25 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 const LOOP_DIR = path.join(ROOT, '.loop');
 const EVENTS_FILE = path.join(LOOP_DIR, 'events.jsonl');
 
-// USD per 1M tokens (input, output). Cache reads bill ~0.1x input,
-// cache writes ~1.25x input. Used only when the CLI doesn't report cost itself.
-const PRICING = [
-  { match: 'opus', input: 5, output: 25 },
-  { match: 'sonnet', input: 3, output: 15 },
-  { match: 'haiku', input: 1, output: 5 },
-];
-
-function ensureLoopDir() {
-  fs.mkdirSync(path.join(LOOP_DIR, 'status'), { recursive: true });
-  fs.mkdirSync(path.join(LOOP_DIR, 'tasks'), { recursive: true });
-  fs.mkdirSync(path.join(LOOP_DIR, 'logs'), { recursive: true });
+function ensureLoopDir(loopDir = LOOP_DIR) {
+  fs.mkdirSync(path.join(loopDir, 'status'), { recursive: true });
+  fs.mkdirSync(path.join(loopDir, 'tasks'), { recursive: true });
+  fs.mkdirSync(path.join(loopDir, 'logs'), { recursive: true });
 }
 
-function appendEvent(event) {
-  ensureLoopDir();
-  const line = JSON.stringify({ ts: Date.now(), ...event });
+function appendEvent(event, loopDir = LOOP_DIR) {
+  fs.mkdirSync(path.join(loopDir, 'status'), { recursive: true });
+  fs.mkdirSync(path.join(loopDir, 'tasks'), { recursive: true });
+  fs.mkdirSync(path.join(loopDir, 'logs'), { recursive: true });
+  const line = JSON.stringify({ ts: Date.now(), event_id: crypto.randomUUID(), ...event });
   // O_APPEND writes of a single small line are atomic enough for concurrent agents.
-  fs.appendFileSync(EVENTS_FILE, line + '\n');
+  fs.appendFileSync(path.join(loopDir, 'events.jsonl'), line + '\n');
 }
 
 function trim(text, max = 300) {
@@ -58,29 +53,6 @@ function summarizeToolInput(toolName, input) {
   }
 }
 
-function priceFor(model) {
-  const m = (model || '').toLowerCase();
-  return PRICING.find((p) => m.includes(p.match)) || null;
-}
-
-// Cost in USD for a usage block; used as fallback when the CLI
-// result message carries no total_cost_usd.
-function costFromUsage(model, usage) {
-  const p = priceFor(model);
-  if (!p || !usage) return 0;
-  const inTok = usage.input_tokens || usage.inputTokens || 0;
-  const outTok = usage.output_tokens || usage.outputTokens || 0;
-  const cacheRead = usage.cache_read_input_tokens || usage.cacheReadInputTokens || 0;
-  const cacheWrite = usage.cache_creation_input_tokens || usage.cacheCreationInputTokens || 0;
-  return (
-    (inTok * p.input +
-      outTok * p.output +
-      cacheRead * p.input * 0.1 +
-      cacheWrite * p.input * 1.25) /
-    1e6
-  );
-}
-
 module.exports = {
   ROOT,
   LOOP_DIR,
@@ -89,5 +61,4 @@ module.exports = {
   appendEvent,
   trim,
   summarizeToolInput,
-  costFromUsage,
 };
